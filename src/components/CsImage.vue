@@ -1,5 +1,5 @@
 <template>
-  <div class="cs-image">
+  <div class="cs-image" :style="sizeStyle">
     <canvas
       :width="width"
       :height="height"
@@ -7,8 +7,8 @@
       ref="canvasOrg"
     ></canvas>
     <canvas
-      class="canvas-mask"
-      ref="canvasMask"
+      class="canvas-selected"
+      ref="canvasSelected"
       :width="width"
       :height="height"
       @mousedown="onmousedown"
@@ -20,7 +20,7 @@
 </template>
 
 <script lang="ts">
-import { Vue, Component, Prop, Watch } from "vue-property-decorator";
+import { Vue, Component, Prop, Watch, Emit } from "vue-property-decorator";
 import chroma from "chroma-js";
 import { debounce } from "lodash";
 import ColorMap from "@/ColorMap";
@@ -31,15 +31,34 @@ export default class CsImage extends Vue {
   width = 300;
   height = 150;
   ctxOrg: CanvasRenderingContext2D | null = null;
-  ctxMask: CanvasRenderingContext2D | null = null;
+  ctxSelected: CanvasRenderingContext2D | null = null;
   colorMap: ColorMap = new ColorMap();
-  points: ColorStats.Point[] = [];
+  selectedPoints: ColorStats.Point[] = [];
 
-  drawing = false;
-  prevPos: ColorStats.Point = { x: 0, y: 0 };
+  isDrawing = false;
+  prevPoint: ColorStats.Point = { x: 0, y: 0 };
 
   get size() {
     return this.width * this.height;
+  }
+
+  get sizeStyle() {
+    return {
+      width: this.width + "px",
+      height: this.height + "px"
+    };
+  }
+
+  /**
+   * 選択された色の配列
+   */
+  get selectedColors() {
+    return this.selectedPoints.map(point => {
+      return {
+        key: `${point.x},${point.y}`,
+        color: this.colorMap.getColor(point.x, point.y)
+      };
+    });
   }
 
   @Prop({ type: String, required: true }) readonly dataURL!: string;
@@ -48,115 +67,177 @@ export default class CsImage extends Vue {
   @Watch("dataURL")
   onChangeFile(val: string) {
     if (val) {
-      this.drawImage();
+      this.loadImage();
     }
   }
 
-  mounted() {
-    const canvasOrg = this.$refs.canvasOrg as HTMLCanvasElement;
-    this.ctxOrg = canvasOrg.getContext("2d");
-    const canvasMask = this.$refs.canvasMask as HTMLCanvasElement;
-    this.ctxMask = canvasMask.getContext("2d");
+  @Watch("selectedPoints")
+  onChangeSelectedPoints(val: ColorStats.Point[]) {
+    const pixedColors: ColorStats.PixelColor[] = [];
+
+    for (const point of val) {
+      const color = this.colorMap.getColor(point.x, point.y);
+      if (color) {
+        pixedColors.push({ point, color });
+      }
+    }
+    this.selected(pixedColors);
   }
 
-  drawImage() {
+  /**
+   * 選択範囲の更新イベント
+   */
+  @Emit()
+  selectedCanvasUpdated() {}
+
+  @Emit()
+  selected(pixelColors: ColorStats.PixelColor[]) {}
+
+  created() {
+    this.$on(
+      "selected-canvas-updated",
+      debounce(this.updateSelectedPoints, 200)
+    );
+  }
+
+  mounted() {
+    this.initialize();
+  }
+
+  /**
+   * canvas の context を初期化する
+   */
+  initialize() {
+    const canvasOrg = this.$refs.canvasOrg as HTMLCanvasElement;
+    this.ctxOrg = canvasOrg.getContext("2d");
+    const canvasSelected = this.$refs.canvasSelected as HTMLCanvasElement;
+    this.ctxSelected = canvasSelected.getContext("2d");
+    if (this.dataURL) {
+      this.loadImage();
+    }
+  }
+
+  /**
+   * 画像をロードする
+   */
+  loadImage() {
     const img = new Image();
+
     img.onload = async () => {
+      console.log("image loaded");
       this.width = img.width;
       this.height = img.height;
 
+      // `width`, `height` が反映されるまで待つ
       await Vue.nextTick();
 
       if (this.ctxOrg) {
         this.ctxOrg.drawImage(img, 0, 0);
         this.resetColorMap();
-        this.resetMask();
+        this.resetSelectedCanvas();
       }
     };
+
     img.src = this.dataURL;
   }
 
+  /**
+   * `colorMap` をリセットする
+   */
   resetColorMap() {
     if (!this.ctxOrg) {
       return;
     }
     const imageData = this.ctxOrg.getImageData(0, 0, this.width, this.height);
-    this.colorMap.setData(imageData, this.width, this.height);
+    this.colorMap.setData(imageData);
   }
 
-  resetMask() {
-    if (!this.ctxMask) {
+  /**
+   * 選択範囲の canvas をリセットする
+   */
+  resetSelectedCanvas() {
+    if (!this.ctxSelected) {
       return;
     }
-    this.ctxMask.clearRect(0, 0, this.width, this.height);
-    this.onUpdatedMask();
-  }
-
-  drawMask(begin: ColorStats.Point, end: ColorStats.Point) {
-    if (!this.ctxMask) {
-      return;
-    }
-    this.ctxMask.beginPath();
-    this.ctxMask.moveTo(begin.x, begin.y);
-    this.ctxMask.lineTo(end.x, end.y);
-    this.ctxMask.strokeStyle = "blue";
-    this.ctxMask.lineCap = "round";
-    this.ctxMask.lineWidth = this.radius;
-    this.ctxMask.stroke();
-    this.onUpdatedMask();
+    this.ctxSelected.clearRect(0, 0, this.width, this.height);
+    this.selectedCanvasUpdated();
   }
 
   onmousedown(e: MouseEvent) {
     const pos = this.getMousePos(e);
-    this.prevPos = pos;
-    this.drawing = true;
+    this.prevPoint = pos;
+    this.isDrawing = true;
   }
 
   onmouseup(e: MouseEvent) {
-    if (!this.drawing) {
+    if (!this.isDrawing) {
       return;
     }
     const pos = this.getMousePos(e);
-    this.drawMask(this.prevPos, pos);
-    this.drawing = false;
+    this.drawLineOnSelectedCanvas(this.prevPoint, pos);
+    this.isDrawing = false;
   }
 
   onmousemove(e: MouseEvent) {
-    if (!this.drawing) {
+    if (!this.isDrawing) {
       return;
     }
     const pos = this.getMousePos(e);
-    this.drawMask(this.prevPos, pos);
-    this.prevPos = pos;
+    this.drawLineOnSelectedCanvas(this.prevPoint, pos);
+    this.prevPoint = pos;
   }
 
   onmouseleave(e: MouseEvent) {
-    this.drawing = false;
+    this.isDrawing = false;
   }
 
   getMousePos(e: MouseEvent) {
-    const canvasMask = this.$refs.canvasMask as HTMLCanvasElement;
-    const rect = canvasMask.getBoundingClientRect();
+    const canvasSelected = this.$refs.canvasSelected as HTMLCanvasElement;
+    const rect = canvasSelected.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
     return { x, y } as ColorStats.Point;
   }
 
-  onUpdatedMask = debounce(this.calcPoints, 500, { maxWait: 1000 });
-
-  calcPoints() {
-    if (!this.ctxMask) {
+  /**
+   * 選択範囲を示す canvas に直線を描画する
+   */
+  drawLineOnSelectedCanvas(begin: ColorStats.Point, end: ColorStats.Point) {
+    if (!this.ctxSelected) {
       return;
     }
-    const maskData = this.ctxMask.getImageData(0, 0, this.width, this.height);
-    this.points = [];
+    this.ctxSelected.beginPath();
+    this.ctxSelected.moveTo(begin.x, begin.y);
+    this.ctxSelected.lineTo(end.x, end.y);
+    this.ctxSelected.strokeStyle = "blue";
+    this.ctxSelected.lineCap = "round";
+    this.ctxSelected.lineWidth = this.radius;
+    this.ctxSelected.stroke();
+    this.selectedCanvasUpdated();
+  }
 
+  /**
+   * 選択範囲の座標のリストを更新する
+   */
+  updateSelectedPoints() {
+    if (!this.ctxSelected) {
+      return;
+    }
+    const selectedData = this.ctxSelected.getImageData(
+      0,
+      0,
+      this.width,
+      this.height
+    );
+
+    this.selectedPoints = [];
     for (let y = 0; y < this.height; y++) {
       for (let x = 0; x < this.width; x++) {
         const index = (this.width * y + x) * 4;
-        const blue = maskData.data[index + 2];
+        const blue = selectedData.data[index + 2];
         if (blue > 0) {
-          this.points.push({ x, y });
+          // blue チャンネルが 1 以上であれば選択範囲とする
+          this.selectedPoints.push({ x, y });
         }
       }
     }
@@ -167,14 +248,13 @@ export default class CsImage extends Vue {
 <style lang="scss" scoped>
 .cs-image {
   position: relative;
-  width: 100%;
   .canvas-org,
-  .canvas-mask {
+  .canvas-selected {
     position: absolute;
     top: 0;
     left: 0;
   }
-  .canvas-mask {
+  .canvas-selected {
     opacity: 0.5;
   }
 }

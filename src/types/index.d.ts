@@ -5,4 +5,9 @@ export namespace ColorStats {
   }
 
   export type Color = [number, number, number];
+
+  export interface PixelColor {
+    point: Point;
+    color: Color;
+  }
 }
