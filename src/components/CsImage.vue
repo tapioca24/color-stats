@@ -21,17 +21,10 @@
 
 <script lang="ts">
 import { Vue, Component, Prop, Watch } from "vue-property-decorator";
-
-interface Point {
-  x: number;
-  y: number;
-}
-
-interface Color {
-  r: number;
-  g: number;
-  b: number;
-}
+import chroma from "chroma-js";
+import { debounce } from "lodash";
+import ColorMap from "@/ColorMap";
+import { ColorStats } from "@/types";
 
 @Component
 export default class CsImage extends Vue {
@@ -39,9 +32,15 @@ export default class CsImage extends Vue {
   height = 150;
   ctxOrg: CanvasRenderingContext2D | null = null;
   ctxMask: CanvasRenderingContext2D | null = null;
+  colorMap: ColorMap = new ColorMap();
+  points: ColorStats.Point[] = [];
+
   drawing = false;
-  prevPos: Point = { x: 0, y: 0 };
-  colors: Color[] = [];
+  prevPos: ColorStats.Point = { x: 0, y: 0 };
+
+  get size() {
+    return this.width * this.height;
+  }
 
   @Prop({ type: String, required: true }) readonly dataURL!: string;
   @Prop({ type: Number, required: true }) readonly radius!: number;
@@ -70,10 +69,19 @@ export default class CsImage extends Vue {
 
       if (this.ctxOrg) {
         this.ctxOrg.drawImage(img, 0, 0);
+        this.resetColorMap();
         this.resetMask();
       }
     };
     img.src = this.dataURL;
+  }
+
+  resetColorMap() {
+    if (!this.ctxOrg) {
+      return;
+    }
+    const imageData = this.ctxOrg.getImageData(0, 0, this.width, this.height);
+    this.colorMap.setData(imageData, this.width, this.height);
   }
 
   resetMask() {
@@ -84,7 +92,7 @@ export default class CsImage extends Vue {
     this.onUpdatedMask();
   }
 
-  drawMask(begin: Point, end: Point) {
+  drawMask(begin: ColorStats.Point, end: ColorStats.Point) {
     if (!this.ctxMask) {
       return;
     }
@@ -131,31 +139,27 @@ export default class CsImage extends Vue {
     const rect = canvasMask.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
-    return { x, y };
+    return { x, y } as ColorStats.Point;
   }
 
-  onUpdatedMask() {
-    if (!this.ctxMask || !this.ctxOrg) {
+  onUpdatedMask = debounce(this.calcPoints, 500, { maxWait: 1000 });
+
+  calcPoints() {
+    if (!this.ctxMask) {
       return;
     }
-
-    const size = this.width * this.height;
-    const orgData = this.ctxOrg.getImageData(0, 0, this.width, this.height);
     const maskData = this.ctxMask.getImageData(0, 0, this.width, this.height);
+    this.points = [];
 
-    const colors: Color[] = [];
-    for (let i = 0; i < size; i++) {
-      const index = i * 4;
-      const blue = maskData.data[index + 2];
-      if (blue > 0) {
-        colors.push({
-          r: orgData.data[index],
-          g: orgData.data[index + 1],
-          b: orgData.data[index + 2]
-        });
+    for (let y = 0; y < this.height; y++) {
+      for (let x = 0; x < this.width; x++) {
+        const index = (this.width * y + x) * 4;
+        const blue = maskData.data[index + 2];
+        if (blue > 0) {
+          this.points.push({ x, y });
+        }
       }
     }
-    this.colors = colors;
   }
 }
 </script>

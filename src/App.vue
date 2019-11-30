@@ -6,7 +6,7 @@
       <CsRadiusSlider @change="onChangeRadius" />
       <!-- <button @click="reset">reset</button> -->
     </div>
-    <CsImage ref="csImage" :dataURL="dataURL" :radius="radius" />
+    <!-- <CsImage ref="csImage" :dataURL="dataURL" :radius="radius" /> -->
   </div>
 </template>
 
