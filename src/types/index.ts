@@ -23,7 +23,7 @@ export namespace ColorStats {
     y: ChartAxisInfo;
   }
 
-  export enum Chunnel {
+  export enum Channel {
     Red = "red",
     Green = "green",
     Blue = "blue"

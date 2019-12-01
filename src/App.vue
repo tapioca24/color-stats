@@ -4,6 +4,7 @@
     <div class="controls">
       <CsUpload @change="onChangeFile" />
       <CsRadiusSlider @change="onChangeRadius" />
+      <CsChannelRadio :channel="channel" @update:channel="onUpdateChannel" />
       <button v-if="dataURL" @click="reset">reset</button>
     </div>
     <div v-if="dataURL">
@@ -41,6 +42,7 @@ import { ColorStats } from "@/types";
 
 import CsUpload from "@/components/CsUpload.vue";
 import CsRadiusSlider from "@/components/CsRadiusSlider.vue";
+import CsChannelRadio from "@/components/CsChannelRadio.vue";
 import CsImage from "@/components/CsImage.vue";
 import CsScatter from "@/components/CsScatter.vue";
 
@@ -48,6 +50,7 @@ import CsScatter from "@/components/CsScatter.vue";
   components: {
     CsUpload,
     CsRadiusSlider,
+    CsChannelRadio,
     CsImage,
     CsScatter
   }
@@ -55,6 +58,7 @@ import CsScatter from "@/components/CsScatter.vue";
 export default class App extends Vue {
   dataURL = "";
   radius = 30;
+  channel = ColorStats.Channel.Red;
   pixelColors: ColorStats.PixelColor[] = [];
 
   get decimatedPixelColors() {
@@ -162,6 +166,11 @@ export default class App extends Vue {
 
   onChangeRadius(radius: number) {
     this.radius = radius;
+  }
+
+  onUpdateChannel(channel: ColorStats.Channel) {
+    console.log(channel);
+    this.channel = channel;
   }
 
   onSelected(pixelColors: ColorStats.PixelColor[]) {
