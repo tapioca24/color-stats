@@ -10,4 +10,22 @@ export namespace ColorStats {
     point: Point;
     color: Color;
   }
+
+  interface ChartAxisInfo {
+    label: string;
+    min: number;
+    max: number;
+    stepSize: number;
+  }
+
+  export interface ChartAxisData {
+    x: ChartAxisInfo;
+    y: ChartAxisInfo;
+  }
+
+  export enum Chunnel {
+    Red = "red",
+    Green = "green",
+    Blue = "blue"
+  }
 }

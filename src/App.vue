@@ -16,8 +16,8 @@
       <div class="chart-container">
         <CsScatter
           class="chart"
-          :chartData="bsChartData"
-          :chartOptions="bsChartOptions"
+          :chartData="sbChartData"
+          :chartOptions="sbChartOptions"
         />
         <CsScatter
           class="chart"
@@ -69,32 +69,40 @@ export default class App extends Vue {
     );
   }
 
-  get bsChartData() {
-    return this.createChartData("Saturation-Brightness", "#f87979", 1, 2);
+  get sbChartData() {
+    return this.createChartData("#f87979", 1, 2);
   }
 
   get hbChartData() {
-    return this.createChartData("Hue-Brightness", "#79f879", 0, 2);
+    return this.createChartData("#79f879", 0, 2);
   }
 
   get hsChartData() {
-    return this.createChartData("Hue-Saturation", "#7979f8", 0, 1);
+    return this.createChartData("#7979f8", 0, 1);
   }
 
-  get bsChartOptions() {
-    return this.createChartOptions(0, 1, 0, 1, 0.2, 0.2);
+  get sbChartOptions() {
+    return this.createChartOptions({
+      x: { label: "Saturation", min: 0, max: 1, stepSize: 0.2 },
+      y: { label: "Brightness", min: 0, max: 1, stepSize: 0.2 }
+    });
   }
 
   get hbChartOptions() {
-    return this.createChartOptions(0, 360, 0, 1, 60, 0.2);
+    return this.createChartOptions({
+      x: { label: "Hue", min: 0, max: 360, stepSize: 60 },
+      y: { label: "Brightness", min: 0, max: 1, stepSize: 0.2 }
+    });
   }
 
   get hsChartOptions() {
-    return this.createChartOptions(0, 360, 0, 1, 60, 0.2);
+    return this.createChartOptions({
+      x: { label: "Hue", min: 0, max: 360, stepSize: 60 },
+      y: { label: "Saturation", min: 0, max: 1, stepSize: 0.2 }
+    });
   }
 
   createChartData(
-    label: string,
     color: string,
     indexX: number,
     indexY: number
@@ -102,7 +110,7 @@ export default class App extends Vue {
     return {
       datasets: [
         {
-          label,
+          label: "",
           borderColor: color,
           backgroundColor: color,
           data: this.decimatedPixelColors.map(pixelColor => ({
@@ -114,31 +122,32 @@ export default class App extends Vue {
     };
   }
 
-  createChartOptions(
-    minX: number,
-    maxX: number,
-    minY: number,
-    maxY: number,
-    stepSizeX?: number,
-    stepSizeY?: number
-  ): Chart.ChartOptions {
+  createChartOptions(data: ColorStats.ChartAxisData): Chart.ChartOptions {
     return {
       scales: {
         xAxes: [
           {
+            scaleLabel: {
+              display: true,
+              labelString: data.x.label
+            },
             ticks: {
-              min: minX,
-              max: maxX,
-              stepSize: stepSizeX
+              min: data.x.min,
+              max: data.x.max,
+              stepSize: data.x.stepSize
             }
           }
         ],
         yAxes: [
           {
+            scaleLabel: {
+              display: true,
+              labelString: data.y.label
+            },
             ticks: {
-              min: minY,
-              max: maxY,
-              stepSize: stepSizeY
+              min: data.y.min,
+              max: data.y.max,
+              stepSize: data.y.stepSize
             }
           }
         ]
