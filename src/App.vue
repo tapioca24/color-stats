@@ -4,7 +4,7 @@
     <div class="controls">
       <CsUpload @change="onChangeFile" />
       <CsChannelSelect v-model="channel" />
-      <CsRadiusSlider @change="onChangeRadius" />
+      <CsRadiusSlider @change="onChangeRadius" :channel="channel" />
       <button v-if="dataURL" @click="reset">reset</button>
     </div>
     <div v-if="dataURL">

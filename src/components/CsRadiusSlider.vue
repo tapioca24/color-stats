@@ -19,7 +19,8 @@
 </template>
 
 <script lang="ts">
-import { Vue, Component, Emit } from "vue-property-decorator";
+import { Vue, Component, Emit, Prop, Watch } from "vue-property-decorator";
+import { ColorStats } from "@/types";
 
 @Component
 export default class CsRadiusSlider extends Vue {
@@ -34,6 +35,26 @@ export default class CsRadiusSlider extends Vue {
 
   get fixedRadius() {
     return this.radius.toFixed(1);
+  }
+
+  get color() {
+    switch (this.channel) {
+      case "red":
+        return "rgb(255, 0, 0, 0.5)";
+      case "green":
+        return "rgb(0, 255, 0, 0.5)";
+      case "blue":
+        return "rgb(0, 0, 255, 0.5)";
+      default:
+        return "rgb(0, 0, 0, 0.5)";
+    }
+  }
+
+  @Prop({ type: String, required: true }) readonly channel!: ColorStats.Channel;
+
+  @Watch("channel")
+  onChangeChannel() {
+    this.drawPreview();
   }
 
   @Emit()
@@ -64,7 +85,7 @@ export default class CsRadiusSlider extends Vue {
     this.ctx.beginPath();
     this.ctx.moveTo(this.width / 2, this.height / 2);
     this.ctx.lineTo(this.width / 2, this.height / 2);
-    this.ctx.strokeStyle = "rgb(0, 0, 255, 0.5)";
+    this.ctx.strokeStyle = this.color;
     this.ctx.lineCap = "round";
     this.ctx.lineWidth = this.radius;
     this.ctx.stroke();
