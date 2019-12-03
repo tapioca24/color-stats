@@ -12,6 +12,7 @@
         ref="csImage"
         :dataURL="dataURL"
         :radius="radius"
+        :channel="channel"
         @selected="onSelected"
       />
       <div class="chart-container">
@@ -60,30 +61,30 @@ export default class App extends Vue {
   radius = 30;
 
   channel: ColorStats.Channel = "red";
-  pixelColors: ColorStats.PixelColor[] = [];
+  pixelColorsList: ColorStats.PixelColor[][] = [[], [], []];
 
-  get decimatedPixelColors() {
-    const maxNum = 500;
-    if (this.pixelColors.length < maxNum) {
-      return this.pixelColors;
-    }
+  get decimatedPixelColorsList() {
+    const maxNum = 200;
+    return this.pixelColorsList.map(pixelColors => {
+      if (pixelColors.length < maxNum) {
+        return pixelColors;
+      }
 
-    const decimatedRatio = 1 - maxNum / this.pixelColors.length;
-    return this.pixelColors.filter(
-      pixelColor => Math.random() > decimatedRatio
-    );
+      const decimatedRatio = 1 - maxNum / pixelColors.length;
+      return pixelColors.filter(pixelColor => Math.random() > decimatedRatio);
+    });
   }
 
   get sbChartData() {
-    return this.createChartData("#f87979", 1, 2);
+    return this.createChartData(1, 2);
   }
 
   get hbChartData() {
-    return this.createChartData("#79f879", 0, 2);
+    return this.createChartData(0, 2);
   }
 
   get hsChartData() {
-    return this.createChartData("#7979f8", 0, 1);
+    return this.createChartData(0, 1);
   }
 
   get sbChartOptions() {
@@ -107,24 +108,21 @@ export default class App extends Vue {
     });
   }
 
-  createChartData(
-    color: string,
-    indexX: number,
-    indexY: number
-  ): Chart.ChartData {
-    return {
-      datasets: [
-        {
-          label: "",
-          borderColor: color,
-          backgroundColor: color,
-          data: this.decimatedPixelColors.map(pixelColor => ({
-            x: pixelColor.color[indexX],
-            y: pixelColor.color[indexY]
-          }))
-        }
-      ]
-    };
+  createChartData(indexX: number, indexY: number): Chart.ChartData {
+    const datasets: Chart.ChartDataSets[] = [];
+    for (let c = 0; c < 3; c++) {
+      const color = this.getChannelColor(c);
+      datasets.push({
+        label: "",
+        borderColor: color,
+        backgroundColor: color,
+        data: this.decimatedPixelColorsList[c].map(pixelColor => ({
+          x: pixelColor.color[indexX],
+          y: pixelColor.color[indexY]
+        }))
+      });
+    }
+    return { datasets };
   }
 
   createChartOptions(data: ColorStats.ChartAxisData): Chart.ChartOptions {
@@ -160,6 +158,14 @@ export default class App extends Vue {
     };
   }
 
+  getChannelColor(channelIndex: number) {
+    let str = "#";
+    for (let c = 0; c < 3; c++) {
+      str += channelIndex === c ? "f8" : "79";
+    }
+    return str;
+  }
+
   onChangeFile(dataURL: string) {
     console.log(dataURL.slice(0, 50));
     this.dataURL = dataURL;
@@ -169,8 +175,11 @@ export default class App extends Vue {
     this.radius = radius;
   }
 
-  onSelected(pixelColors: ColorStats.PixelColor[]) {
-    this.pixelColors = pixelColors;
+  onSelected(pixelColorsList: ColorStats.PixelColor[][]) {
+    while (pixelColorsList.length < 3) {
+      pixelColorsList.push([]);
+    }
+    this.pixelColorsList = pixelColorsList;
   }
 
   reset() {

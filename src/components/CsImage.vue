@@ -33,7 +33,7 @@ export default class CsImage extends Vue {
   ctxOrg: CanvasRenderingContext2D | null = null;
   ctxSelected: CanvasRenderingContext2D | null = null;
   colorMap: ColorMap = new ColorMap();
-  selectedPoints: ColorStats.Point[] = [];
+  selectedPointsList: ColorStats.Point[][] = [[], [], []];
 
   isDrawing = false;
   prevPoint: ColorStats.Point = { x: 0, y: 0 };
@@ -49,20 +49,22 @@ export default class CsImage extends Vue {
     };
   }
 
-  /**
-   * 選択された色の配列
-   */
-  get selectedColors() {
-    return this.selectedPoints.map(point => {
-      return {
-        key: `${point.x},${point.y}`,
-        color: this.colorMap.getColor(point.x, point.y)
-      };
-    });
+  get color() {
+    switch (this.channel) {
+      case "red":
+        return "rgb(255, 0, 0)";
+      case "green":
+        return "rgb(0, 255, 0)";
+      case "blue":
+        return "rgb(0, 0, 255)";
+      default:
+        return "rgb(0, 0, 0)";
+    }
   }
 
   @Prop({ type: String, required: true }) readonly dataURL!: string;
   @Prop({ type: Number, required: true }) readonly radius!: number;
+  @Prop({ type: String, required: true }) readonly channel!: ColorStats.Channel;
 
   @Watch("dataURL")
   onChangeFile(val: string) {
@@ -71,17 +73,18 @@ export default class CsImage extends Vue {
     }
   }
 
-  @Watch("selectedPoints")
-  onChangeSelectedPoints(val: ColorStats.Point[]) {
-    const pixedColors: ColorStats.PixelColor[] = [];
-
-    for (const point of val) {
-      const color = this.colorMap.getColor(point.x, point.y);
-      if (color) {
-        pixedColors.push({ point, color });
+  @Watch("selectedPointsList")
+  onChangeSelectedPointsList(val: ColorStats.Point[][]) {
+    const pixelColorsList: ColorStats.PixelColor[][] = [[], [], []];
+    for (let c = 0; c < 3; c++) {
+      for (const point of val[c]) {
+        const color = this.colorMap.getColor(point.x, point.y);
+        if (color) {
+          pixelColorsList[c].push({ point, color });
+        }
       }
     }
-    this.selected(pixedColors);
+    this.selected(pixelColorsList);
   }
 
   /**
@@ -91,7 +94,7 @@ export default class CsImage extends Vue {
   selectedCanvasUpdated() {}
 
   @Emit()
-  selected(pixelColors: ColorStats.PixelColor[]) {}
+  selected(pixelColors: ColorStats.PixelColor[][]) {}
 
   created() {
     this.$on(
@@ -209,7 +212,7 @@ export default class CsImage extends Vue {
     this.ctxSelected.beginPath();
     this.ctxSelected.moveTo(begin.x, begin.y);
     this.ctxSelected.lineTo(end.x, end.y);
-    this.ctxSelected.strokeStyle = "blue";
+    this.ctxSelected.strokeStyle = this.color;
     this.ctxSelected.lineCap = "round";
     this.ctxSelected.lineWidth = this.radius;
     this.ctxSelected.stroke();
@@ -230,17 +233,21 @@ export default class CsImage extends Vue {
       this.height
     );
 
-    this.selectedPoints = [];
+    const selectedPointsList: ColorStats.Point[][] = [[], [], []];
+
     for (let y = 0; y < this.height; y++) {
       for (let x = 0; x < this.width; x++) {
         const index = (this.width * y + x) * 4;
-        const blue = selectedData.data[index + 2];
-        if (blue > 0) {
-          // blue チャンネルが 1 以上であれば選択範囲とする
-          this.selectedPoints.push({ x, y });
+
+        for (let c = 0; c < 3; c++) {
+          if (selectedData.data[index + c] > 0) {
+            // チャンネルの輝度が 1 以上であれば選択範囲とする
+            selectedPointsList[c].push({ x, y });
+          }
         }
       }
     }
+    this.selectedPointsList = selectedPointsList;
   }
 }
 </script>
@@ -255,7 +262,7 @@ export default class CsImage extends Vue {
     left: 0;
   }
   .canvas-selected {
-    opacity: 0.5;
+    opacity: 0.4;
   }
 }
 </style>
