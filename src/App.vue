@@ -1,6 +1,10 @@
 <template>
   <div id="app">
-    <h1>Color stats</h1>
+    <h1>色分布チェッカー</h1>
+    <p class="description">
+      画像ファイルを選択後、色分布を知りたい箇所を塗ります。<br />
+      指定範囲の HSB 表色系における色分布をグラフに表示します。
+    </p>
     <div class="controls">
       <CsUpload @change="onChangeFile" />
       <CsChannelSelect v-model="channel" />
@@ -191,7 +195,8 @@ export default class App extends Vue {
 
 <style lang="scss">
 #app {
-  font-family: "Avenir", Helvetica, Arial, sans-serif;
+  font-family: "Hiragino Kaku Gothic Pro", "ヒラギノ角ゴ Pro W3", メイリオ,
+    Meiryo, "ＭＳ Ｐゴシック", sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   color: #2c3e50;
