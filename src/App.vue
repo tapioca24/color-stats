@@ -1,6 +1,12 @@
 <template>
   <div id="app">
     <h1>色分布チェッカー</h1>
+    <p class="copyright">
+      <a href="https://github.com/tapioca24/color-stats" target="_blank">
+        Source code
+      </a>
+      &copy; 2019 tapioca24
+    </p>
     <p class="description">
       画像ファイルを選択後、色分布を知りたい箇所を塗ります。<br />
       指定範囲の HSB 表色系における色分布をグラフに表示します。
@@ -200,6 +206,13 @@ export default class App extends Vue {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   color: #2c3e50;
+
+  .copyright {
+    font-size: 12px;
+    a {
+      color: #62cccc;
+    }
+  }
 
   .cs-radius-slider {
     display: inline-block;
